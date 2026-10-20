@@ -4,6 +4,8 @@ Assignment 2 (Full-Stack Developer). Built with **Bubble.io** (app, database, au
 
 Authors log in to see their own books and royalty figures. Admins see every author and can trigger an AI-generated royalty summary, which is calculated in n8n, written by Gemini, returned to Bubble and stored in a Notification Log.
 
+**Submission status note:** The Bubble UI and individual-summary workflow are configured, but final end-to-end AI generation must be re-tested with a valid Gemini API key. The bulk trigger and separate callback path are not verified. This README distinguishes configured functionality from verified behavior.
+
 ## What is built
 
 **Author portal:** email/password login, "My Books" cards, per-book copies sold / earned / paid / pending, consolidated totals, and a Paid / Pending / Overdue badge per book.
@@ -109,11 +111,56 @@ Because the free-plan workflow limit interrupted final testing, the bulk feature
 - **Payout date bug.** My first Code node used the end of the *current* quarter plus 45 days (Feb 2027), but the rule needs the most recent deadline still ahead (Nov 2026). I fixed it and checked it in the n8n output.
 - **Bubble date conditions.** Date maths belongs on the date value (`date + days 90 < Current date/time`), not after `Current date/time`.
 
-## Setup and moving to another account
+## Setup and configuration
 
-**n8n:** import `n8n/workflow.json`, then recreate separately: the Gemini API key (credential or environment variable `GEMINI_API_KEY`; the exported file must not contain a key), the webhook authentication credential, `BUBBLE_API_TOKEN` (only if you enable the callback). Publish the workflow and use the new `/webhook/bookleaf-royalty-summary` URL.
+> **Gemini API configuration:** The exported workflow uses a placeholder for the API key. Before testing AI generation, add a valid Gemini API key to the `x-goog-api-key` header in the n8n HTTP Request node. Do not include the key in the exported workflow.
 
-**Bubble:** duplicate the app (or recreate the types above), then re-check: the API Connector URL and private headers, the hardcoded callback URL host (`<appname>.bubbleapps.io/version-test/...`), the Workflow API setting and API token, and the privacy rules. Data does not move with the app: export Things as CSV and import them again. Passwords are not exportable, so recreate the test logins and their `User.role` / `User.author` links.
+### Prerequisites
+
+- A Bubble.io app with the data types and pages described above.
+- An n8n instance that can receive public HTTPS webhooks.
+- A Google Gemini API key with access to the configured Gemini model.
+- Access to the Bubble editor and the n8n workflow.
+- Test Author and Admin accounts linked to the appropriate `User` records.
+
+### 1. Configure n8n
+
+1. Open n8n and import the provided workflow JSON.
+2. Open **AI - Draft Royalty Email (Gemini Primary)**.
+3. Confirm the HTTP Request node uses the intended Gemini API endpoint and `Content-Type: application/json`.
+4. Add your Gemini API key to the `x-goog-api-key` header using n8n credentials or a protected environment variable where supported. Do not leave the value blank when testing.
+5. Run a test execution and inspect the Gemini node output. A green overall execution alone is not enough: confirm the node returned generated text and not an API error.
+6. Check the Code and Prepare Result + Status nodes with a representative author payload. Verify totals against the supplied book records.
+7. Activate/publish the workflow and copy its **production** webhook URL. Do not use the temporary `/webhook-test/` URL for the deployed Bubble app.
+8. If enabling the separate Bubble callback path, configure its Bubble endpoint and credentials separately. The callback node is disabled in this submission and should not be assumed to work.
+
+### 2. Configure Bubble
+
+1. Open the Bubble app in the editor.
+2. Confirm the `Author`, `Book`, `NotificationLog`, and `User` data types and their fields/relationships.
+3. Create or import the sample Author and Book records. Link each Book to its Author.
+4. Create test users and set each user's `role` (`admin` or `author`). For author users, link `User.author` to the corresponding Author record.
+5. In API Connector, configure the n8n webhook URL to the active production URL.
+6. Keep any secret headers private. Do not put personal API keys in public page elements, README files, or exported workflow JSON.
+7. Check the `NotificationLog` workflow: create a log entry before the request, then save the returned status, generated content/error message, and completion timestamp.
+
+### 3. Test the integration
+
+- **Input validation:** send a representative author with their full book list; inspect the actual input received by n8n.
+- **Royalty calculation:** compare earned, paid, pending, copy counts, production/published counts, eligibility, and due date with the stored records.
+- **Gemini generation:** confirm the Gemini node returns generated text. Test an invalid/missing key only as a deliberate failure test.
+- **Bubble result:** confirm the summary page displays the returned content and that the corresponding `NotificationLog` is updated.
+- **Failure path:** confirm an API error produces a visible `Failed` status and a useful error message rather than an empty summary marked successful.
+- **Bulk trigger:** this was not verified end to end because the Bubble free-plan workflow limit was reached. Do not present it as tested.
+- **Security:** confirm credentials are not included in the exported workflow or repository.
+
+### 4. Moving the project to another Bubble account
+
+- Duplicate/recreate the Bubble app and re-check all API Connector URLs and private headers.
+- Replace any hard-coded Bubble app hostname in callback URLs with the new app's hostname.
+- If using Bubble Workflow API or a callback endpoint, enable/configure it explicitly and create a new token; do not reuse a personal token in a public export.
+- Export/import data separately. Bubble app duplication does not automatically mean that all database records and user accounts are transferred.
+- Recreate test logins and their `User.role` / `User.author` relationships. Passwords should not be expected to transfer through a data export.
 
 ## Repository contents
 
