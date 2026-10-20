@@ -186,11 +186,9 @@ screenshots/          (optional)
 
 ## Access and demo
 
-- Live app: [add URL]
-- Author test login: [email / password]
-- Admin test login: [email / password]
-- Bubble editor access: shared with the reviewer email provided
-- n8n workflow export: `n8n/workflow.json`
-- Screen recording: [add link]
-
+- Live Bubble preview: https://coderakhil786.bubbleapps.io/version-test?debug_mode=true
+- n8n workflow: BookLeaf Royalty Summary - Gemini Primary.json
+- Screen recording: [[add link]](https://drive.google.com/file/d/1-fPAX_SAkbzk6WQqkMRR5az3GpkHovp0/view?usp=sharing)
+- Test accounts: Admin and author test accounts are available for reviewing the application. Test credentials should be shared directly with the reviewer, not stored in this public repository.
 Sensitive keys are not included in this repository.
+
