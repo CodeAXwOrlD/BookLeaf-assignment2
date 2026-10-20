@@ -1,0 +1,221 @@
+{
+  "name": "BookLeaf Royalty Summary - Gemini Primary",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "bookleaf-royalty-summary",
+        "authentication": "headerAuth",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "2c65f46e-41ed-4b5e-b393-34938331f4fc",
+      "name": "Webhook - Bubble Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        432,
+        192
+      ],
+      "webhookId": "bookleaf-royalty-summary-trigger",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "KDOUju8sOXACucTc",
+          "name": "Header Auth account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json;\nconst body = input.body ?? input;\n\nconst author = body.author ?? {};\n\nlet books = [];\n\nif (Array.isArray(body.books)) {\n  books = body.books;\n} else if (typeof body.books_json === \"string\") {\n  try {\n    const parsed = JSON.parse(body.books_json);\n    books = Array.isArray(parsed) ? parsed : [parsed];\n  } catch (error) {\n    const message =\n      error instanceof Error ? error.message : String(error);\n    throw new Error(\"Invalid books_json: \" + message);\n  }\n} else if (Array.isArray(body.books_json)) {\n  books = body.books_json;\n} else if (body.books_json && typeof body.books_json === \"object\") {\n  books = [body.books_json];\n} else if (body.books && typeof body.books === \"object\") {\n  books = [body.books];\n}\n\nif (!author.name || !author.email) {\n  throw new Error(\"Payload must include author.name and author.email\");\n}\n\nif (books.length === 0) {\n  throw new Error(\"Payload must include a non-empty books array\");\n}\n\nconst number = (value) => {\n  const result = Number(value);\n  return Number.isFinite(result) ? result : 0;\n};\n\nconst money = (value) =>\n  Math.round((value + Number.EPSILON) * 100) / 100;\n\nconst formatMoney = (value) =>\n  \"₹\" +\n  money(value).toLocaleString(\"en-IN\", {\n    maximumFractionDigits: 2,\n  });\n\nconst earned = money(\n  books.reduce((sum, book) => sum + number(book.total_royalty_earned), 0)\n);\n\nconst paid = money(\n  books.reduce((sum, book) => sum + number(book.royalty_paid), 0)\n);\n\nconst pending = money(\n  books.reduce((sum, book) => sum + number(book.royalty_pending), 0)\n);\n\nconst copiesSold = books.reduce(\n  (sum, book) => sum + number(book.total_copies_sold),\n  0\n);\n\nconst publishedBooks = books.filter((book) =>\n  String(book.status ?? \"\").toLowerCase().includes(\"published\")\n);\n\nconst today = new Date();\nconst y = today.getUTCFullYear();\nconst ends = [Date.UTC(y,0,0), Date.UTC(y,3,0), Date.UTC(y,6,0), Date.UTC(y,9,0), Date.UTC(y,12,0)];\nconst due = ends.map(e => new Date(e + 45*86400000)).find(d => d >= today) ?? new Date(Date.UTC(y + 1, 0, 0) + 45*86400000);\nconst dueDate = due.toISOString().slice(0, 10);\n\nconst requestId = String(\n  body.request_id || `${author.author_id || author.email}-${Date.now()}`\n);\n\nreturn [\n  {\n    json: {\n      request_id: requestId,\n      author: {\n        author_id: author.author_id || \"\",\n        name: author.name,\n        email: author.email,\n        city: author.city || \"\",\n      },\n      summary: {\n        total_books: books.length,\n        published_books: publishedBooks.length,\n        books_in_production: books.length - publishedBooks.length,\n        total_copies_sold: copiesSold,\n        total_royalty_earned: earned,\n        total_royalty_paid: paid,\n        total_royalty_pending: pending,\n        payout_status:\n          pending === 0\n            ? \"Fully paid\"\n            : pending < 1000\n              ? \"Below minimum - rolls over\"\n              : \"Pending payout\",\n        minimum_payout_threshold: 1000,\n        eligible_for_payout: pending >= 1000,\n        indicative_due_date_utc: dueDate,\n      },\n      display: {\n        total_earned: formatMoney(earned),\n        total_paid: formatMoney(paid),\n        total_pending: formatMoney(pending),\n        threshold: formatMoney(1000),\n        payout_due_date_long: due.toLocaleDateString(\"en-GB\", { day: \"numeric\", month: \"long\", year: \"numeric\", timeZone: \"UTC\" }),\n      },\n      books: books.map((book) => ({\n        book_id: book.book_id || \"\",\n        title: book.title || \"Untitled\",\n        isbn: book.isbn || \"\",\n        genre: book.genre || \"\",\n        status: book.status || \"\",\n        mrp: number(book.mrp),\n        total_copies_sold: number(book.total_copies_sold),\n        total_royalty_earned: money(number(book.total_royalty_earned)),\n        royalty_paid: money(number(book.royalty_paid)),\n        royalty_pending: money(number(book.royalty_pending)),\n        earned_display: formatMoney(number(book.total_royalty_earned)),\n        paid_display: formatMoney(number(book.royalty_paid)),\n        pending_display: formatMoney(number(book.royalty_pending)),\n        last_royalty_payout_date: book.last_royalty_payout_date || \"\",\n      })),\n      callback_url:\n        body.callback_url ||\n        \"https://coderakhil786.bubbleapps.io/version-test/api/1.1/wf/royalty_summary_callback\",\n      bubble_log_id: body.bubble_log_id || \"\",\n    },\n  },\n];"
+      },
+      "id": "3fc1bc4c-4f37-483d-a84b-249126d79ff7",
+      "name": "Calculate Royalty Facts",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        672,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-goog-api-key"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({\n  systemInstruction: {\n    parts: [\n      {\n        text: `You are the Author Relations Manager of BookLeaf Publishing, writing a formal royalty statement email to an author.\n\nTONE:\n- Formal, courteous, precise and respectful, in the style of an established publishing house.\n- Address the author by their full name, for example Dear Sneha Kulkarni, and do not guess titles such as Ms. or Mr.\n- Use complete sentences in measured business English. No slang, no exclamation marks, no filler, no promotional language.\n\nSTRUCTURE (plain text only, no markdown symbols, use hyphens for bullets):\n1. First line exactly: Subject: Your BookLeaf Royalty Summary\n2. A salutation line: Dear (author full name),\n3. One short opening paragraph stating that this is the author's royalty statement from BookLeaf Publishing.\n4. Heading: Publication Overview. Give the number of published titles, the number of titles in production with each title name and its production status, and total copies sold.\n5. Heading: Title-wise Royalty Details. For each published book, in the order supplied, give one hyphen line with: title, copies sold, royalty earned, royalty paid, royalty pending, and last payout date. Use the earned_display, paid_display and pending_display values exactly as supplied. If last_royalty_payout_date is empty, write: no payout recorded to date.\n6. Heading: Royalty Statement. Give total royalty earned, total royalty paid, total royalty pending and payout status, using the display values exactly as supplied.\n7. Heading: Payout Information. One short paragraph chosen by the facts:\n - If total_royalty_pending is zero: acknowledge with appreciation that all royalties are fully paid up, and state that no payment is outstanding.\n - If eligible_for_payout is false and pending is above zero: state that the pending amount is below the minimum payout threshold of the threshold value, that it rolls over toward a future payout, and that it is not overdue.\n - If eligible_for_payout is true: state that the pending amount meets the minimum payout threshold and that payment is expected in the quarterly payout cycle, which closes 45 days after quarter end, by the date in payout_due_date_long, written exactly as supplied.. Describe this as an expected date, not a guarantee.\n8. A closing paragraph inviting the author to contact BookLeaf Author Support with any questions.\n9. End exactly with these two lines:\nWarm regards,\nBookLeaf Author Support\n\nACCURACY RULES:\n- Use only the verified facts in the input JSON. Never invent or recalculate figures, titles, dates, policies or promises.\n- Copy every amount and date exactly as supplied.\n- Never describe pending royalty as paid, and never call a rolled-over amount overdue.\n- Keep published titles and titles in production clearly separate. Give no royalty figures for titles in production.\n- Omit any information that is not supplied.\n- Do not say that the email has been sent.\n- Return only the email text.`\n      }\n    ]\n  },\n  contents: [\n    {\n      role: \"user\",\n      parts: [\n        {\n          text: \"Create the royalty summary email from these verified facts:\\n\" +\n            JSON.stringify($(\"Calculate Royalty Facts\").first().json)\n        }\n      ]\n    }\n  ],\n  generationConfig: {\n    temperature: 0.2,\n    maxOutputTokens: 2000\n  }\n}) }}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          },
+          "timeout": 60000
+        }
+      },
+      "id": "b739650a-b5c3-41c6-98d9-b9b21b2b3d77",
+      "name": "AI - Draft Royalty Email (Gemini Primary)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        944,
+        192
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const facts = $('Calculate Royalty Facts').first().json;\nconst ai = $input.first().json;\n\nconst content = String(\n  ai?.candidates?.[0]?.content?.parts\n    ?.map(p => p?.text || '')\n    .join('')\n    .trim() || ''\n);\n\nconst apiError = ai?.error?.message || ai?.message || '';\nconst failed = !content || !!apiError;\n\nreturn [{\n  json: {\n    ...facts,\n    status: failed ? 'Failed' : 'Success',\n    generated_content: content,\n    error_message: failed\n      ? (apiError || 'Gemini returned no text; check model name, API key, quota and n8n execution details')\n      : '',\n    completed_at: new Date().toISOString()\n  }\n}];"
+      },
+      "id": "90770ddf-2abe-4d88-a403-a99229183b2f",
+      "name": "Prepare Result + Status",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1200,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.callback_url || 'https://coderakhil786.bubbleapps.io/version-test/api/1.1/wf/royalty_summary_callback' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer {{$env.BUBBLE_API_TOKEN}}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({request_id:$json.request_id,author_email:$json.author.email,status:$json.status,created_at:$json.created_at,completed_at:$json.completed_at,generated_content:$json.generated_content,error_message:$json.error_message,bubble_log_id:$json.bubble_log_id,summary:$json.summary}) }}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          },
+          "timeout": 30000
+        }
+      },
+      "id": "24a0e17c-4480-4389-8dcd-4db944f7fc0a",
+      "name": "Bubble Callback - Save Notification Log",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1456,
+        192
+      ],
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({\n  request_id: $('Prepare Result + Status').first().json.request_id,\n  status: $('Prepare Result + Status').first().json.status,\n  generated_content: $('Prepare Result + Status').first().json.generated_content,\n  error_message: $('Prepare Result + Status').first().json.error_message,\n  completed_at: $('Prepare Result + Status').first().json.completed_at\n}) }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "dd84530f-ab45-40e7-a3bd-32d527d5242d",
+      "name": "Respond to Bubble",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1712,
+        192
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook - Bubble Trigger": {
+      "main": [
+        [
+          {
+            "node": "Calculate Royalty Facts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Result + Status": {
+      "main": [
+        [
+          {
+            "node": "Bubble Callback - Save Notification Log",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bubble Callback - Save Notification Log": {
+      "main": [
+        [
+          {
+            "node": "Respond to Bubble",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculate Royalty Facts": {
+      "main": [
+        [
+          {
+            "node": "AI - Draft Royalty Email (Gemini Primary)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI - Draft Royalty Email (Gemini Primary)": {
+      "main": [
+        [
+          {
+            "node": "Prepare Result + Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "7bb2ea02-c390-46cd-9753-0928ce0db414",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "c30f9d01539c73f2b37d5ffb489c4da515a6dc5d45ad5e38ecd67966b711b4c2"
+  },
+  "id": "hyZxQO9TpsOtbFIc",
+  "tags": []
+}
