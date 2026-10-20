@@ -134,15 +134,20 @@ Because the free-plan workflow limit interrupted final testing, the bulk feature
 7. Activate/publish the workflow and copy its **production** webhook URL. Do not use the temporary `/webhook-test/` URL for the deployed Bubble app.
 8. If enabling the separate Bubble callback path, configure its Bubble endpoint and credentials separately. The callback node is disabled in this submission and should not be assumed to work.
 
-### 2. Configure Bubble
+### 2. Configure Bubble (when using this supplied Bubble app)
 
-1. Open the Bubble app in the editor.
-2. Confirm the `Author`, `Book`, `NotificationLog`, and `User` data types and their fields/relationships.
-3. Create or import the sample Author and Book records. Link each Book to its Author.
-4. Create test users and set each user's `role` (`admin` or `author`). For author users, link `User.author` to the corresponding Author record.
-5. In API Connector, configure the n8n webhook URL to the active production URL.
-6. Keep any secret headers private. Do not put personal API keys in public page elements, README files, or exported workflow JSON.
-7. Check the `NotificationLog` workflow: create a log entry before the request, then save the returned status, generated content/error message, and completion timestamp.
+The Bubble app already contains the UI, data types, sample records, and workflows. **Do not recreate the database or pages** when you have been given editor access to this app.
+
+1. Open the supplied app from the Bubble dashboard and open the editor.
+2. Go to **Plugins → API Connector**.
+3. Open the existing **n8n Royalty - Generate Royalty Summary** call.
+4. In the call's URL field, paste the **active Production URL** shown by the n8n Webhook node for the workflow you intend to use. The URL format is `https://<your-n8n-host>/webhook/bookleaf-royalty-summary`. Do not use `/webhook-test/` for the deployed app.
+5. Keep the existing HTTP method, JSON body, and parameter mappings unchanged unless the imported workflow expects a different payload. Initialize/test the call only after the n8n workflow is active and its Gemini API key is configured.
+6. Save the API Connector settings, then test the **individual Generate Royalty Summary** action from an author detail page.
+7. Confirm the result page shows the returned summary and the matching `NotificationLog` status/content. If the request fails, inspect the latest n8n execution and the API Connector response before changing the body.
+8. If the n8n workflow is running on the original supplied n8n instance, keep its current Production URL. If the workflow was imported into another n8n instance, use that new instance's Production URL instead.
+
+**If you are configuring a different/new Bubble app instead:** install the Bubble **API Connector** plugin via **Plugins → Add plugins → API Connector**, then recreate the call with the same method, request body, and dynamic fields from the supplied app. Import/recreate the required data types, pages, workflows, sample records, and user-role relationships separately; changing the webhook URL alone does not recreate the app.
 
 ### 3. Test the integration
 
@@ -154,13 +159,14 @@ Because the free-plan workflow limit interrupted final testing, the bulk feature
 - **Bulk trigger:** this was not verified end to end because the Bubble free-plan workflow limit was reached. Do not present it as tested.
 - **Security:** confirm credentials are not included in the exported workflow or repository.
 
-### 4. Moving the project to another Bubble account
+### 4. If the reviewer uses a separate Bubble app
 
-- Duplicate/recreate the Bubble app and re-check all API Connector URLs and private headers.
-- Replace any hard-coded Bubble app hostname in callback URLs with the new app's hostname.
-- If using Bubble Workflow API or a callback endpoint, enable/configure it explicitly and create a new token; do not reuse a personal token in a public export.
-- Export/import data separately. Bubble app duplication does not automatically mean that all database records and user accounts are transferred.
-- Recreate test logins and their `User.role` / `User.author` relationships. Passwords should not be expected to transfer through a data export.
+This section applies only if the reviewer is not using the supplied Bubble app and instead creates/uses a separate app.
+
+- Recreate the required data types, pages, workflows, and `User.role` / `User.author` relationships in that app, or use a supported app-copy/transfer process.
+- In **Plugins → API Connector**, point the existing summary call to the Production webhook URL of the n8n instance they will run.
+- Update any hard-coded Bubble app hostname in callback URLs only if the callback path is enabled. The callback node is disabled in this submission, so the synchronous response path is the intended integration.
+- Import/create sample data and test users separately. Do not assume that copying the workflow JSON transfers Bubble database records or user accounts.
 
 ## Repository contents
 
