@@ -147,6 +147,14 @@ The Bubble app already contains the UI, data types, sample records, and workflow
 7. Confirm the result page shows the returned summary and the matching `NotificationLog` status/content. If the request fails, inspect the latest n8n execution and the API Connector response before changing the body.
 8. If the n8n workflow is running on the original supplied n8n instance, keep its current Production URL. If the workflow was imported into another n8n instance, use that new instance's Production URL instead.
 
+#### URL-change rule: what to update and when
+
+- **If you only add the reviewer as a Bubble collaborator:** do not change any URL. Inviting a collaborator normally does not change the Bubble app URL or the n8n webhook URL.
+- **If the Bubble app URL stays the same:** do not change Bubble URLs in n8n. Keep the existing setup.
+- **If the Bubble app's hostname changes or the app is replaced with a different Bubble app:** the n8n webhook URL does not need to change just because Bubble changed. The Bubble API Connector should continue pointing to the active n8n Production URL. The exported workflow has a hard-coded Bubble callback fallback in the `Calculate Royalty Facts` Code node and a URL in the disabled `Bubble Callback - Save Notification Log` node. The callback node is disabled in this submission, so do not change these just for the current synchronous response flow. If the callback is enabled later, update both Bubble callback URL references to the new app's correct endpoint and configure the required Bubble API workflow/authentication.
+- **If the n8n host or webhook path changes:** update the URL in Bubble under **Plugins → API Connector → n8n Royalty - Generate Royalty Summary** to the active Production URL shown by that n8n Webhook node. Do not change it if the n8n URL is unchanged.
+- **If the reviewer imports the workflow into their own n8n instance:** use that instance's Production URL in the supplied Bubble app's API Connector. The URL will usually differ because the host is different, even if the webhook path stays `bookleaf-royalty-summary`.
+
 **If you are configuring a different/new Bubble app instead:** install the Bubble **API Connector** plugin via **Plugins → Add plugins → API Connector**, then recreate the call with the same method, request body, and dynamic fields from the supplied app. Import/recreate the required data types, pages, workflows, sample records, and user-role relationships separately; changing the webhook URL alone does not recreate the app.
 
 ### 3. Test the integration
